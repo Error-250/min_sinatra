@@ -75,10 +75,15 @@ module Min_Sinatra
           header = raw[1]
           bodys = raw[2]
         end
-        if Min_Sinatra.settings[:json_set] == true
+        if Min_Sinatra.settings[:json] == true
           bodys = bodys.to_json
         end
-        [status, header, [bodys]]
+        if Array === bodys
+          bodys = bodys.map{|e| e.to_s}
+          [status, header, bodys]
+        else
+          [status, header, [bodys.to_s]]
+        end
       end
     end
     #
@@ -97,7 +102,7 @@ module Min_Sinatra
           use Rack::Session::Cookie, :secret => Time.new.to_s,:expire_after => 12
           run Rack::Cascade.new [statics, Min_Sinatra::App.new]
         end
-        Rack::Handler::WEBrick.run wfwapp
+        Rack::Handler::WEBrick.run wfwapp, :Port => Min_Sinatra.settings[:port] || 8080
       rescue Exception => e
       ensure
         Rack::Handler::WEBrick.shutdown
@@ -116,10 +121,10 @@ module Min_Sinatra
       [302,{"Location"=> targetURI},[]]
     end
     #
-    # format json
+    # set
     #
-    def self.json_format
-      Min_Sinatra.settings[:json_set] = true
+    def self.set *arg
+      Min_Sinatra.settings[arg[0]] = arg[1]
     end
   end
   #
@@ -135,7 +140,7 @@ module Min_Sinatra
       end
     end
   end
-  register :get, :post, :put, :delete, :json_format, :params, :redirect, :session
+  register :get, :post, :put, :delete, :set, :params, :redirect, :session
   
   at_exit { Min_Sinatra::App.start if $!.nil? || $!.is_a?(SystemExit) && $!.success?}
 end
