@@ -5,7 +5,8 @@ Example :
 <pre>
 require './min_sinatra'
 
-json_format
+set :json, true
+set :port, 4567
 
 get '/' do
   redirect '/index.html'
