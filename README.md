@@ -5,6 +5,8 @@ Example :
 <pre>
 require './min_sinatra'
 
+json_format
+
 get '/' do
   redirect '/index.html'
 end
@@ -25,6 +27,6 @@ end
 
 </pre>
 
-Supports : Regexp route; restful interface; Rack::Session; params; response like Rack as [200,{},["hello"]]
+<strong>Supports :</strong> Regexp route; restful interface; Rack::Session; params; response like Rack as [200,{},["hello"]]
 
-Usage : Simple Web Server.Can use as Single Page Application's Server
+<strong>Usage :</strong> Simple Web Server.Can use as Single Page Application's Server
