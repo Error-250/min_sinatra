@@ -1,4 +1,4 @@
-require './min_sinatra'
+require '../min_sinatra'
 
 json_format
 
