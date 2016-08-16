@@ -28,6 +28,14 @@ end
 
 </pre>
 
-<strong>Supports :</strong> Regexp route; restful interface; Rack::Session; params; response like Rack as [200,{},["hello"]]
+<strong>Supports :</strong>
+Regexp route;
+restful interface;
+Rack::Session;
+params;
+response like Rack as [200,{},["hello"]];
+Rack Middleware;
+route like /hehe/:id;
+settings :josn, :port, :static
 
 <strong>Usage :</strong> Simple Web Server.Can use as Single Page Application's Server
