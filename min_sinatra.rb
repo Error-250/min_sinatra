@@ -8,12 +8,24 @@ module Min_Sinatra
   #
   # set Module instance
   #   * settings - settings for web server
-  #     -> route - all route sets from user
+  #     -> route   - all route sets from user
+  #     -> port    - set port for server 
+  #     -> static  - set static floder
+  #     -> json    - set whether retrun json data
+  #     -> uses    - all Rack Middleware
+  #     -> session - set use session
   #
   class << self
     attr_accessor :settings
   end
-  self.settings = {:route => {:get =>[],:post=>[],:put=>[],:delete=>[]}}
+  self.settings = {
+    :port => 8080,
+    :static => 'static',
+    :json => false,
+    :uses => [],
+    :session => false,
+    :route => {:get =>[],:post=>[],:put=>[],:delete=>[]}
+  }
   #
   # Rack App
   #
@@ -30,6 +42,18 @@ module Min_Sinatra
       [200,{},["<h1>404 Not Found</h1>"]]
     end
     #
+    # get Settings
+    #
+    def settings
+      self.class.settings
+    end
+    #
+    # get Settings
+    #
+    def self.settings
+      Min_Sinatra.settings
+    end
+    #
     # Rack app call function interface
     #
     def call env
@@ -43,7 +67,7 @@ module Min_Sinatra
       req = Rack::Request.new env
       self.class.params = req.params
       method = env["REQUEST_METHOD"].downcase
-      Min_Sinatra.settings[:route][method.to_sym].each do |p|
+      settings[:route][method.to_sym].each do |p|
         case p[:path]
         when String
           if env["REQUEST_PATH"] == p[:path]
@@ -51,6 +75,9 @@ module Min_Sinatra
           end
         when Regexp
           if env["REQUEST_PATH"] =~ p[:path]
+            if !p[:extend_key].nil? # analize extend_params like /hehe/:id
+              req.params[p[:extend_key].to_sym] = $1
+            end
             raw = p[:proc].call
           end
         else
@@ -75,7 +102,7 @@ module Min_Sinatra
           header = raw[1]
           bodys = raw[2]
         end
-        if Min_Sinatra.settings[:json] == true
+        if settings[:json] == true
           bodys = bodys.to_json
         end
         if Array === bodys
@@ -96,13 +123,23 @@ module Min_Sinatra
     # start server
     #
     def self.start
-      statics = Rack::File.new 'static'
+      statics = Rack::File.new settings[:static]
       begin
         wfwapp = Rack::Builder.new do
-          use Rack::Session::Cookie, :secret => Time.new.to_s,:expire_after => 12
+          if Min_Sinatra.settings[:session] == true
+            use Rack::Session::Cookie, :secret => Time.new.to_s, :expire_after => 12
+          end
+          # Load Rack Middleware
+          Min_Sinatra.settings[:uses].each do |mid|
+            if mid[:middleware].size > 1
+              use mid[:middleware][0], *mid[:middleware][1,mid[:middleware].size]
+            else
+              use mid[:middleware][0]
+            end
+          end
           run Rack::Cascade.new [statics, Min_Sinatra::App.new]
         end
-        Rack::Handler::WEBrick.run wfwapp, :Port => Min_Sinatra.settings[:port] || 8080
+        Rack::Handler::WEBrick.run wfwapp, :Port => Min_Sinatra.settings[:port]
       rescue Exception => e
       ensure
         Rack::Handler::WEBrick.shutdown
@@ -116,7 +153,7 @@ module Min_Sinatra
       if uri =~ /http:\/\//
         targetURI = uri
       else
-        targetURI = "http://127.0.0.1:" + env["SERVER_PORT"] + uri
+        targetURI = "http://" + env["SERVER_NAME"] + ":" + env["SERVER_PORT"] + uri
       end
       [302,{"Location"=> targetURI},[]]
     end
@@ -124,7 +161,17 @@ module Min_Sinatra
     # set
     #
     def self.set *arg
-      Min_Sinatra.settings[arg[0]] = arg[1]
+      settings[arg[0]] = arg[1]
+    end
+    #
+    # use Rack Middleware
+    #
+    def self.use *arg
+      if arg[0] == Rack::Session::Cookie
+        set :session, true
+      else
+        settings[:uses] << { :middleware => arg }
+      end
     end
   end
   #
@@ -136,11 +183,19 @@ module Min_Sinatra
         return (Min_Sinatra::App.send method_name, *path, &block) if Min_Sinatra::App.respond_to? method_name
         throw :syntax_error if path[0].nil? or block.nil?
         throw :illegal_route if !(String===path[0]) and !(Regexp === path[0])
-        Min_Sinatra.settings[:route][method_name] << {:path => path[0], :proc => block}
+        # translate route like /hehe/:id to /^\/hehe\/(.*)$/
+        if String === path[0] and path[0] =~ /(:[a-z]*)$/
+          extend_key = $1
+          path[0] = path[0].delete extend_key
+          path[0] = "^" + path[0] + "(.*)$"
+          path[0] = Regexp.new path[0]
+          extend_key = extend_key.delete ":"
+        end
+        Min_Sinatra.settings[:route][method_name] << {:path => path[0], :extend_key => extend_key, :proc => block}
       end
     end
   end
-  register :get, :post, :put, :delete, :set, :params, :redirect, :session
+  register :get, :post, :put, :delete, :set, :params, :redirect, :session, :use
   
   at_exit { Min_Sinatra::App.start if $!.nil? || $!.is_a?(SystemExit) && $!.success?}
 end

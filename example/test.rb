@@ -1,6 +1,6 @@
 require '../min_sinatra'
 
-json_format
+use Rack::Session::Cookie, :secret => Time.now.to_s, :expire_after => 12
 
 get '/' do
   redirect '/index.html'
@@ -10,6 +10,10 @@ post '/app' do
   session['uname'] = params['uname']
   p session['uname']
   redirect '/start'
+end
+
+get '/hehe/:id' do
+  params[:id]
 end
 
 get '/start' do
